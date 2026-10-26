@@ -82,6 +82,7 @@
 |---|---|
 | `export_dict.py` | 从 MySQL `information_schema` / Excel / CSV 导出字段字典为 JSON，并做质量检查 |
 | `demo/table-rag-demo.html` | 链路演示页，单文件，浏览器直接打开 |
+| `cases/weekly-report-automation.md` | 实战案例：广告日报自动化的口径决策与验证方法 |
 
 ### export_dict.py
 
