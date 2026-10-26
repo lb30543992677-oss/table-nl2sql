@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 字典导出结果（含真实表名/字段名，不要提交）
+dict.json
+dict_quality.md
+
+# 原始数据与字典文件
+*.xlsx
+*.xls
+*.csv
+*.db
+*.sqlite
+
+# 环境与密钥
+.env
+config.local.py
+
+# 编辑器 / 系统
+.idea/
+.vscode/
+Thumbs.db
+Desktop.ini

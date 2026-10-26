@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>表格数据问答 · 最小链路</title>
+<style>
+  :root{
+    --bg:#131316; --panel:#1B1B20; --panel2:#212127; --line:#2E2E36;
+    --txt:#E9E7E2; --txt2:#A3A19B; --txt3:#6C6A65;
+    --teal:#5DCAA5; --teal-bg:#0E2E25;
+    --blue:#85B7EB; --blue-bg:#0B2438;
+    --amber:#EF9F27; --amber-bg:#2E2109;
+    --red:#F09595; --red-bg:#331A1A;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;
+    font-size:14px;line-height:1.65;
+    max-width:1200px;margin:0 auto;padding:44px 36px 72px;
+  }
+  .mono{font-family:"Cascadia Code",Consolas,"Courier New",monospace}
+
+  header{margin-bottom:32px}
+  .tag{
+    display:inline-block;font-size:11px;letter-spacing:.08em;
+    color:var(--teal);background:var(--teal-bg);
+    border:1px solid #1E5A47;border-radius:4px;
+    padding:3px 9px;margin-bottom:14px;
+  }
+  h1{font-size:22px;font-weight:500;letter-spacing:-.01em;margin-bottom:10px}
+  .sub{color:var(--txt2);font-size:13px;max-width:720px}
+  .sub b{color:var(--txt);font-weight:500}
+
+  .layout{display:grid;grid-template-columns:320px 1fr;gap:20px;align-items:start}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px}
+  .card + .card{margin-top:16px}
+  .label{
+    font-size:11px;letter-spacing:.08em;color:var(--txt3);
+    text-transform:uppercase;margin-bottom:12px;
+  }
+
+  .qs{display:flex;flex-direction:column;gap:8px}
+  .q{
+    text-align:left;background:var(--panel2);border:1px solid var(--line);
+    border-radius:7px;padding:11px 13px;color:var(--txt2);
+    font-size:13px;font-family:inherit;line-height:1.5;cursor:pointer;
+    transition:border-color .15s,color .15s,background .15s;
+  }
+  .q:hover{border-color:#3E3E48;color:var(--txt)}
+  .q.on{border-color:#2F6E5A;background:#182B26;color:var(--txt)}
+  .q .qs-i{display:block;font-size:11px;color:var(--txt3);margin-bottom:3px}
+
+  .note{
+    margin-top:14px;padding:11px 13px;border-left:2px solid var(--amber);
+    background:var(--amber-bg);border-radius:0 6px 6px 0;
+    font-size:12px;color:#D8C9A8;line-height:1.6;
+  }
+  .note.teal{border-left-color:var(--teal);background:var(--teal-bg);color:#A9DCC9}
+
+  .src{display:flex;flex-direction:column;gap:9px;font-size:12px}
+  .src-row{display:flex;justify-content:space-between;align-items:baseline;
+    padding-bottom:9px;border-bottom:1px solid var(--line)}
+  .src-row:last-child{border-bottom:0;padding-bottom:0}
+  .src-row .n{color:var(--txt3);font-family:"Cascadia Code",Consolas,monospace;font-size:11.5px}
+  .src-row .c{color:var(--txt3);font-size:11px}
+
+  .steps{display:flex;flex-direction:column;gap:12px}
+  .step{
+    background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;overflow:hidden;
+  }
+  .step-h{
+    display:flex;align-items:center;gap:11px;
+    padding:13px 18px;border-bottom:1px solid var(--line);
+  }
+  .num{
+    font-family:"Cascadia Code",Consolas,monospace;font-size:11px;
+    color:var(--txt3);width:20px;flex:none;
+  }
+  .st{font-size:13.5px;font-weight:500;flex:1}
+  .badge{
+    font-size:11px;padding:2px 8px;border-radius:4px;flex:none;
+    border:1px solid transparent;
+  }
+  .badge.ok{color:var(--teal);background:var(--teal-bg);border-color:#1E5A47}
+  .badge.warn{color:var(--amber);background:var(--amber-bg);border-color:#5C4212}
+  .badge.bad{color:var(--red);background:var(--red-bg);border-color:#5E2E2E}
+  .badge.idle{color:var(--txt3);background:var(--panel2);border-color:var(--line)}
+  .step-b{padding:16px 18px}
+
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{
+    display:inline-flex;align-items:baseline;gap:7px;
+    background:var(--panel2);border:1px solid var(--line);
+    border-radius:6px;padding:6px 11px;font-size:12.5px;
+  }
+  .chip .k{color:var(--txt3);font-size:11px}
+  .chip .v{color:var(--txt)}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{
+    text-align:left;font-weight:400;color:var(--txt3);font-size:11px;
+    letter-spacing:.04em;padding:0 10px 8px;border-bottom:1px solid var(--line);
+  }
+  td{padding:9px 10px;border-bottom:1px solid #26262C;vertical-align:middle}
+  tr:last-child td{border-bottom:0}
+  .fld{font-family:"Cascadia Code",Consolas,monospace;font-size:11.5px;color:var(--blue)}
+  .fld.pick{color:var(--teal)}
+  .sc{font-family:"Cascadia Code",Consolas,monospace;font-size:11.5px;color:var(--txt2);white-space:nowrap}
+  .bar{width:110px;height:4px;background:#2A2A31;border-radius:2px;overflow:hidden}
+  .bar i{display:block;height:100%;background:#4A4A56;border-radius:2px}
+  .bar i.hi{background:var(--teal)}
+  .cmp{color:var(--txt3);font-size:11.5px}
+  .mark{color:var(--teal);font-size:11px}
+
+  pre{
+    background:#0E0E11;border:1px solid var(--line);border-radius:7px;
+    padding:15px 17px;overflow-x:auto;
+    font-family:"Cascadia Code",Consolas,monospace;
+    font-size:12px;line-height:1.85;color:#C9C7C1;
+  }
+  .kw{color:#C792EA}
+  .fn{color:var(--blue)}
+  .str{color:#B5CE8A}
+  .cm{color:#5C5A55;font-style:italic}
+
+  .result{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-end}
+  .metric .k{font-size:11px;color:var(--txt3);margin-bottom:3px}
+  .metric .v{
+    font-family:"Cascadia Code",Consolas,monospace;
+    font-size:22px;color:var(--txt);letter-spacing:-.02em;
+  }
+  .empty{
+    padding:16px;border:1px dashed #4A3030;border-radius:7px;
+    background:#1E1516;color:#C99A9A;font-size:12.5px;
+  }
+
+  .verdict{border-radius:7px;padding:15px 17px;font-size:12.5px;line-height:1.7}
+  .verdict.ok{background:var(--teal-bg);border:1px solid #1E5A47;color:#A9DCC9}
+  .verdict.bad{background:var(--red-bg);border:1px solid #5E2E2E;color:#DDB0B0}
+  .verdict .vl{
+    display:block;font-size:11px;letter-spacing:.06em;
+    opacity:.7;margin-bottom:7px;
+  }
+  .verdict .vl + .vl{margin-top:14px}
+  .verdict b{font-weight:500;color:#fff}
+  .verdict code{
+    font-family:"Cascadia Code",Consolas,monospace;font-size:11.5px;
+    background:rgba(0,0,0,.28);padding:1px 5px;border-radius:3px;
+  }
+  .verdict ol{margin:6px 0 0 16px}
+  .verdict li{margin-bottom:3px}
+
+  .foot{
+    margin-top:36px;padding-top:22px;border-top:1px solid var(--line);
+    color:var(--txt3);font-size:12px;line-height:1.8;
+  }
+  .foot b{color:var(--txt2);font-weight:500}
+
+  .eval th:last-child,.eval td:last-child{text-align:right}
+  .pass{color:var(--teal);font-size:11.5px}
+  .fail{color:var(--red);font-size:11.5px}
+  .rate{
+    display:flex;align-items:baseline;gap:10px;margin-top:18px;
+    padding-top:16px;border-top:1px solid var(--line);
+  }
+  .rate .big{font-family:"Cascadia Code",Consolas,monospace;font-size:26px;color:var(--txt)}
+  .rate .rt{color:var(--txt2);font-size:12.5px}
+
+  .hide{display:none}
+  @media(max-width:900px){
+    .layout{grid-template-columns:1fr}
+    body{padding:28px 20px 48px}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="tag">最小链路演示</div>
+  <h1>一句话查数：问句 → 字段匹配 → SQL → 归因</h1>
+  <p class="sub">表格类数据的问答比文档难：切块会打碎表头，检索到某一行却丢了列名。这里把链路拆开，看每一步在做什么、以及它到底错在哪一层。<b>第二个案例是故意留的失败样本</b>。</p>
+</header>
+
+<div class="layout">
+
+  <aside>
+    <div class="card">
+      <div class="label">选一个问题</div>
+      <div class="qs">
+        <button class="q on" data-case="a">
+          <span class="qs-i">案例 A · 命中</span>
+          上个月益生元品类的支付金额是多少
+        </button>
+        <button class="q" data-case="b">
+          <span class="qs-i">案例 B · 未命中</span>
+          最近 7 天少女丹的访客数
+        </button>
+      </div>
+      <div class="note">案例 B 的 SQL 完全正确，但查出来是空的。往下看它卡在第几层——这类问题靠调 prompt 是修不好的。</div>
+    </div>
+
+    <div class="card">
+      <div class="label">数据源</div>
+      <div class="src">
+        <div class="src-row"><span class="n">dy_order</span><span class="c">订单表 · 24 字段</span></div>
+        <div class="src-row"><span class="n">dy_product</span><span class="c">商品表 · 31 字段</span></div>
+        <div class="src-row"><span class="n">dy_traffic</span><span class="c">流量表 · 18 字段</span></div>
+        <div class="src-row"><span class="n">dict.json</span><span class="c">字段字典 · 945 条</span></div>
+      </div>
+      <div class="note teal">字段中文注释就是检索的语料。注释写得糙，后面每一步都会歪。</div>
+    </div>
+  </aside>
+
+  <main>
+    <!-- ========== 案例 A ========== -->
+    <div class="steps" id="case-a">
+
+      <div class="step">
+        <div class="step-h"><span class="num">01</span><span class="st">意图解析</span><span class="badge ok">完成</span></div>
+        <div class="step-b">
+          <div class="chips">
+            <span class="chip"><span class="k">指标</span><span class="v">支付金额</span></span>
+            <span class="chip"><span class="k">品类</span><span class="v">益生元</span></span>
+            <span class="chip"><span class="k">时间</span><span class="v">2026-09-01 ~ 09-30</span></span>
+            <span class="chip"><span class="k">粒度</span><span class="v">汇总</span></span>
+          </div>
+          <div class="note" style="margin-top:14px">模型先把自然语言压成结构化槽位。这一步错了，后面再准也白搭——但大多数项目根本不测这一步。</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-h"><span class="num">02</span><span class="st">字段匹配</span><span class="badge ok">0.94 命中</span></div>
+        <div class="step-b">
+          <table>
+            <tr><th>候选字段</th><th>相似度</th><th></th><th>字典里的注释</th></tr>
+            <tr>
+              <td class="fld pick">dy_order.pay_amount</td>
+              <td class="sc">0.94</td>
+              <td><span class="bar"><i class="hi" style="width:94%"></i></span></td>
+              <td class="cmp">实付金额，优惠后 <span class="mark">← 选中</span></td>
+            </tr>
+            <tr>
+              <td class="fld">dy_order.total_amount</td>
+              <td class="sc">0.72</td>
+              <td><span class="bar"><i style="width:72%"></i></span></td>
+              <td class="cmp">订单总额，未扣优惠</td>
+            </tr>
+            <tr>
+              <td class="fld">dy_order.settle_amount</td>
+              <td class="sc">0.48</td>
+              <td><span class="bar"><i style="width:48%"></i></span></td>
+              <td class="cmp">结算金额，扣佣金后</td>
+            </tr>
+            <tr>
+              <td class="fld pick">dy_product.category_name</td>
+              <td class="sc">0.88</td>
+              <td><span class="bar"><i class="hi" style="width:88%"></i></span></td>
+              <td class="cmp">商品类目名称 <span class="mark">← 选中</span></td>
+            </tr>
+          </table>
+          <div class="note" style="margin-top:14px">三个字段的中文名都像"金额"，只有 pay_amount 的注释里出现了"实付"两个字，相似度才拉开。字典注释的质量，直接决定这一步的天花板。</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-h"><span class="num">03</span><span class="st">生成 SQL</span><span class="badge ok">通过校验</span></div>
+        <div class="step-b">
+<pre><span class="kw">SELECT</span> <span class="fn">SUM</span>(o.pay_amount)               <span class="kw">AS</span> gmv,
+       <span class="fn">COUNT</span>(<span class="kw">DISTINCT</span> o.order_id)      <span class="kw">AS</span> orders
+<span class="kw">FROM</span> dy_order o
+<span class="kw">JOIN</span> dy_product p <span class="kw">ON</span> o.product_id = p.product_id
+<span class="kw">WHERE</span> p.category_name = <span class="str">'益生元'</span>
+  <span class="kw">AND</span> o.pay_time &gt;= <span class="str">'2026-09-01'</span>
+  <span class="kw">AND</span> o.pay_time &lt;  <span class="str">'2026-10-01'</span>
+  <span class="kw">AND</span> o.order_status <span class="kw">IN</span> (<span class="str">'已支付'</span>,<span class="str">'已完成'</span>);</pre>
+          <div class="note" style="margin-top:14px">时间用左闭右开（<code class="mono">&gt;= 09-01 AND &lt; 10-01</code>），不用 <code class="mono">BETWEEN</code>——否则最后一天 23:59 之后的单子会漏掉。</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-h"><span class="num">04</span><span class="st">执行</span><span class="badge ok">2 行</span></div>
+        <div class="step-b">
+          <div class="result">
+            <div class="metric"><div class="k">支付金额</div><div class="v">¥1,284,630</div></div>
+            <div class="metric"><div class="k">订单数</div><div class="v">3,842</div></div>
+            <div class="metric"><div class="k">客单价</div><div class="v">¥334</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-h"><span class="num">05</span><span class="st">归因</span><span class="badge ok">链路通过</span></div>
+        <div class="step-b">
+          <div class="verdict ok">
+            <span class="vl">判断</span>
+            四个环节全部对齐，结果可直接交付。
+            <span class="vl">但要记下来的</span>
+            "通过了"本身没有价值，有价值的是<b>知道它为什么通过</b>：品类取值精确命中、字段注释可区分、时间边界正确。这三条换成别的问句就不一定成立了——所以才需要下一张表。
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ========== 案例 B ========== -->
+    <div class="steps hide" id="case-b">
+
+      <div class="step">
+        <div class="step-h"><span class="num">01</span><span class="st">意图解析</span><span class="badge ok">完成</span></div>
+        <div class="step-b">
+          <div class="chips">
+            <span class="chip"><span class="k">指标</span><span class="v">访客数</span></span>
+            <span class="chip"><span class="k">品类</span><span class="v">少女丹</span></span>
+            <span class="chip"><span class="k">时间</span><span class="v">2026-10-19 ~ 10-25</span></span>
+            <span class="chip"><span class="k">粒度</span><span class="v">按日</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-h"><span class="num">02</span><span class="st">字段匹配</span><span class="badge warn">有歧义</span></div>
+        <div class="step-b">
+          <table>
+            <tr><th>候选字段</th><th>相似度</th><th></th><th>字典里的注释</th></tr>
+            <tr>
+              <td class="fld pick">dy_traffic.uv</td>
+              <td class="sc">0.91</td>
+              <td><span class="bar"><i class="hi" style="width:91%"></i></span></td>
+              <td class="cmp">访客数，按用户去重 <span class="mark">← 选中</span></td>
+            </tr>
+            <tr>
+              <td class="fld">dy_traffic.pv</td>
+              <td class="sc">0.84</td>
+              <td><span class="bar"><i style="width:84%"></i></span></td>
+              <td class="cmp">浏览量，不去重</td>
+            </tr>
+            <tr>
+              <td class="fld pick">dy_product.category_name</td>
+              <td class="sc">0.86</td>
+              <td><span class="bar"><i class="hi" style="width:86%"></i></span></td>
+              <td class="cmp">商品类目名称 <span class="mark">← 选中</span></td>
+            </tr>
+          </table>
+          <div class="note" style="margin-top:14px">uv 和 pv 只差 0.07。口语里"访客数""浏览量"经常混着说，这是整条链路的第一个不确定点。选错不会报错，只会给你一个看起来正常的错数字。</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-h"><span class="num">03</span><span class="st">生成 SQL</span><span class="badge ok">语法正确</span></div>
+        <div class="step-b">
+<pre><span class="kw">SELECT</span> t.stat_date,
+       <span class="fn">SUM</span>(t.uv)  <span class="kw">AS</span> visitors
+<span class="kw">FROM</span> dy_traffic t
+<span class="kw">JOIN</span> dy_product p <span class="kw">ON</span> t.product_id = p.product_id
+<span class="kw">WHERE</span> p.category_name = <span class="str">'少女丹'</span>
+  <span class="kw">AND</span> t.stat_date &gt;= <span class="str">'2026-10-19'</span>
+  <span class="kw">AND</span> t.stat_date &lt;= <span class="str">'2026-10-25'</span>
+<span class="kw">GROUP</span> <span class="kw">BY</span> t.stat_date
+<span class="kw">ORDER</span> <span class="kw">BY</span> t.stat_date;</pre>
+          <div class="note" style="margin-top:14px">语法、表名、连接条件、时间范围全部正确。校验器全部通过——<b>但校验通过不等于结果对</b>。</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-h"><span class="num">04</span><span class="st">执行</span><span class="badge bad">0 行</span></div>
+        <div class="step-b">
+          <div class="empty">查询成功，返回 0 行。没有报错，没有警告。</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-h"><span class="num">05</span><span class="st">归因</span><span class="badge bad">卡在元数据层</span></div>
+        <div class="step-b">
+          <div class="verdict bad">
+            <span class="vl">先排除什么</span>
+            SQL 语法没问题、字段选对了、时间范围没错 —— 所以<b>不是生成层的问题</b>。别去改 prompt。
+            <span class="vl">真正的原因</span>
+            <code>category_name</code> 的实际取值里没有"少女丹"。
+            <span class="vl">怎么确认</span>
+            跑一条<br>
+            <code>SELECT DISTINCT category_name FROM dy_product WHERE category_name LIKE '%少女%'</code><br>
+            返回 <code>少女丹·私护凝胶</code> —— 库里存的是完整品名，不是简称。
+            <span class="vl">怎么修（按性价比排序）</span>
+            <ol>
+              <li>建一张取值映射表，把简称、别名、错别字映射到真实取值</li>
+              <li>枚举型字段在生成 SQL 前先查一次 distinct 值，做模糊匹配再拼条件</li>
+              <li>空结果时自动回查一次，把"没查到"和"值为 0"区分开</li>
+            </ol>
+            <span class="vl">这条要记住</span>
+            这是<b>数据字典和真实数据脱节</b>，属于元数据层。同一类问题在"退款率""新客数"上会以口径分歧的形式反复出现——它们都不是模型能力问题。
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ========== 评测表 ========== -->
+    <div class="card" style="margin-top:26px">
+      <div class="label">评测集 · 6 条用例</div>
+      <table class="eval">
+        <tr><th>#</th><th>用例</th><th>期望</th><th>实际</th><th>失败归因</th><th></th></tr>
+        <tr><td class="mono" style="color:#6C6A65">01</td><td>上月益生元支付金额</td><td class="sc">1,284,630</td><td class="sc">1,284,630</td><td class="cmp">—</td><td class="pass">通过</td></tr>
+        <tr><td class="mono" style="color:#6C6A65">02</td><td>近 7 天少女丹访客数</td><td class="sc">有值</td><td class="sc">0 行</td><td class="cmp">元数据 · 取值不匹配</td><td class="fail">失败</td></tr>
+        <tr><td class="mono" style="color:#6C6A65">03</td><td>哪个类目 GMV 最高</td><td class="sc">益生元</td><td class="sc">益生元</td><td class="cmp">—</td><td class="pass">通过</td></tr>
+        <tr><td class="mono" style="color:#6C6A65">04</td><td>昨天退款率</td><td class="sc">8.2%</td><td class="sc">12.7%</td><td class="cmp">口径 · 分母是订单数还是金额</td><td class="fail">失败</td></tr>
+        <tr><td class="mono" style="color:#6C6A65">05</td><td>上周新客数</td><td class="sc">1,204</td><td class="sc">1,204</td><td class="cmp">—</td><td class="pass">通过</td></tr>
+        <tr><td class="mono" style="color:#6C6A65">06</td><td>TOP10 商品榜</td><td class="sc">10 行</td><td class="sc">超时中断</td><td class="cmp">编排 · 触发步数上限</td><td class="fail">失败</td></tr>
+      </table>
+      <div class="rate">
+        <span class="big">3 / 6</span>
+        <span class="rt">通过率 50% —— 这个数字才是"能跑通"和"能上线"的真实距离。三条失败没有一条是模型不够聪明。</span>
+      </div>
+    </div>
+
+    <div class="foot">
+      <b>这份演示里哪些是真的：</b>链路顺序、字段匹配的打分逻辑、SQL 写法、归因方法、评测集的失败分类，都是真实工程做法。<br>
+      <b>哪些是模拟的：</b>模型调用和数据库查询是前端写死的示例数据，没有连你的库，也没有调 API。要跑真的，把 <code class="mono">dict.json</code> 换成你的字段字典、SQL 执行换成真连接就行——链路本身不用改。<br>
+      <b>字段名和取值</b>用的是抖音电商表的示意结构，真实的以你的字典为准。
+    </div>
+  </main>
+</div>
+
+<script>
+  const qs = document.querySelectorAll('.q');
+  const panes = { a: document.getElementById('case-a'), b: document.getElementById('case-b') };
+  qs.forEach(q => {
+    q.addEventListener('click', () => {
+      qs.forEach(x => x.classList.remove('on'));
+      q.classList.add('on');
+      const k = q.dataset.case;
+      Object.keys(panes).forEach(kk => {
+        panes[kk].classList.toggle('hide', kk !== k);
+      });
+    });
+  });
+</script>
+</body>
+</html>
